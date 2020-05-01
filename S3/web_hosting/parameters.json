@@ -1,0 +1,10 @@
+[
+    {
+        "ParameterKey": "S3BucketName",
+        "ParameterValue": "web.nullpo.io"
+    },
+    {
+        "ParameterKey": "S3BucketNameLog",
+        "ParameterValue": "web-log.nullpo.io"
+    }
+]

@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: This CloudFormation template to create S3 Bucket
+
+Parameters:
+  S3BucketName:
+    Description: A name for the WebContents buckets.
+    Type: String
+  S3BucketNameLog:
+    Description: A name for the Log buckets.
+    Type: String
+
+Resources:
+  S3BucketContents:
+    Type: AWS::S3::Bucket
+    #DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub ${S3BucketName}
+      AccessControl: PublicRead
+      WebsiteConfiguration:
+        IndexDocument: index.html
+        ErrorDocument: error.html
+      LoggingConfiguration:
+        DestinationBucketName: !Ref S3BucketLog
+        LogFilePrefix: !Sub "/logs/${S3BucketName}/"
+
+  S3BucketContentsPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref S3BucketContents
+      PolicyDocument:
+        Statement:
+          Action:
+            - "s3:GetObject"
+          Effect: "Allow"
+          Resource: !Sub "arn:aws:s3:::${S3BucketName}/*"
+          Principal: "*"
+
+  S3BucketLog:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref S3BucketNameLog
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub "${S3BucketNameLog}-log-LifeCycle"
+            Status: Enabled
+            Prefix: log/
+            ExpirationInDays: 365
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 180
+
+Outputs:
+  S3BucketName:
+    Value: !Ref S3BucketContents
+  WebsiteURL:
+    Value: !GetAtt S3BucketContents.WebsiteURL
+    Description: URL for website hosted on S3

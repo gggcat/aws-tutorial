@@ -4,10 +4,13 @@ services:
   tutorial:
     image: zzzcat/aws-cli:latest
     tty: true
-    # Docker outside of Docker
+    working_dir: /work
     volumes:
+        - .:/work
         - /var/run/docker.sock:/var/run/docker.sock
     # 環境変数
     environment:
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
+      AWS_DEFAULT_OUTPUT: ${AWS_DEFAULT_OUTPUT}
