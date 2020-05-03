@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 
+  Amazon CertManager
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label: 
+          default: "Route53 public zone"
+        Parameters: 
+          - DomainName
+
+    ParameterLabels: 
+      DomainName: 
+        default: "example.com"
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  DomainName:
+    Type: String
+
+Resources:
+# ------------------------------------------------------------#
+# CertificateManager
+# ------------------------------------------------------------#
+  MyZoneCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      ValidationMethod: DNS
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  MyHostedZoneName:
+    Description: "DomainName."
+    Value: !Ref DomainName
+  MyZoneCertificateID:
+    Description: "Certificate ID."
+    Value: !Ref MyZoneCertificate

@@ -1,10 +1,10 @@
 [
     {
         "ParameterKey": "S3BucketName",
-        "ParameterValue": "web.nullpo.io"
+        "ParameterValue": "web.bucket.example.com"
     },
     {
         "ParameterKey": "S3BucketNameLog",
-        "ParameterValue": "web-log.nullpo.io"
+        "ParameterValue": "web-log.bucket.example.com"
     }
 ]
