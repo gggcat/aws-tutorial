@@ -1,6 +1,6 @@
 [
     {
         "ParameterKey": "S3BucketName",
-        "ParameterValue": "test.nullpo.io"
+        "ParameterValue": "test.bucket.example.com"
     }
 ]
