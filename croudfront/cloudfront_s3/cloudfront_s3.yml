@@ -1,0 +1,236 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 
+  S3 and CloudFront for Sorry Page Create
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label: 
+          default: "S3 and CloudFront Configuration"
+        Parameters: 
+          - DomainName
+          - S3BucketName
+          - MyHostedZoneId
+          - CFSSLCertificateId
+
+    ParameterLabels: 
+      DomainName: 
+        default: "example.com"
+      MyHostedZoneId:
+        default: "	ZNXXXXXXXXX"
+      S3BucketName: 
+        default: "myBucketName"
+      CFSSLCertificateId: 
+        default: "CFSSLCertificateId"
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+Parameters:
+  DomainName:
+    Type: String
+  S3BucketName:
+    Type: String
+  MyHostedZoneId:
+    Type: String
+  CFSSLCertificateId:
+    Type: String
+
+
+Resources:
+# ------------------------------------------------------------#
+#  S3 Bucket (WebContents)
+# ------------------------------------------------------------#
+  StaticContentsBcuket:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Ref S3BucketName
+
+  CloudFrontOriginAccessIdentity:
+    Type: "AWS::CloudFront::CloudFrontOriginAccessIdentity"
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub "access-identity-${StaticContentsBcuket}"
+
+  StaticContentsBcuketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref StaticContentsBcuket
+      PolicyDocument:
+        Statement:
+        - Action: "s3:GetObject"
+          Effect: Allow
+          Resource: !Sub "arn:aws:s3:::${StaticContentsBcuket}/*"
+          Principal:
+            CanonicalUser: !GetAtt CloudFrontOriginAccessIdentity.S3CanonicalUserId
+
+  CloudFrontLog:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Sub "log.${S3BucketName}"
+      AccessControl: LogDeliveryWrite
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: !Sub "${S3BucketName}-log-LifeCycle"
+            Status: Enabled
+            Prefix: log/
+            ExpirationInDays: 365
+            Transitions:
+              - StorageClass: GLACIER
+                TransitionInDays: 180
+
+# ------------------------------------------------------------#
+#  CloudFront
+# ------------------------------------------------------------#
+  # CloudFrontは利用可能になるまで時間がかかる
+  CloudFrontDistribution:
+    Type: "AWS::CloudFront::Distribution"
+    Properties:
+      DistributionConfig:
+        #
+        # PriceClass
+        # https://aws.amazon.com/jp/cloudfront/pricing/
+        #
+        # PriceClass_200は日本を含むが南米やオーストラリアは含まない
+        PriceClass: PriceClass_200
+
+        #
+        # Aliases
+        #
+        Aliases:
+        - !Ref DomainName
+
+        #
+        # Logging
+        #
+        Logging:
+          IncludeCookies: false
+          Bucket: !GetAtt CloudFrontLog.DomainName
+          Prefix: cloudfront-logs
+
+        #
+        # DefaultRootObject
+        #
+        DefaultRootObject: index.html
+
+        #
+        # CustomErrorResponses
+        #
+        CustomErrorResponses:
+        - ErrorCode: 403
+          ErrorCachingMinTTL: 30
+          ResponseCode: 403
+          ResponsePagePath: /error.html
+        - ErrorCode: 404
+          ErrorCachingMinTTL: 30
+          ResponseCode: 404
+          ResponsePagePath: /error.html
+
+        #
+        # CacheBehavior　…　キャッシュルール
+        #
+        # CacheBehaviors:
+        # CacheBehaviorがない場合はDefaultCacheBehaviorを使用する
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          CachedMethods:
+          - GET
+          - HEAD
+          Compress: true
+          # オリジンサーバがキャッシュ制御(Cache-Controlなど)を行わない場合のTTL
+          DefaultTTL: 3600
+          # FieldLevelEncryptionId: String
+          # クエリ文字列やCookieの処理方法
+          ForwardedValues:
+            Cookies:
+              Forward: none
+            QueryString: false
+          # LambdaFunctionAssociations: 
+          # オリジンサーバがキャッシュ制御(Cache-Controlなど)を行った場合の最大TTL
+          MaxTTL: 86400
+          # オブジェクト更新チェックのTTL
+          MinTTL: 60
+          # PathPattern: String
+          # SmoothStreaming: Boolean
+          # リクエストをルーティングする先のオリジンID
+          TargetOriginId: !Sub "S3origin-${S3BucketName}"
+          # TrustedSigners: 
+          ViewerProtocolPolicy: redirect-to-https
+
+        #
+        # HttpVersion　…　使用するHTTPバージョン
+        #
+        # http2ならhttp2以下を使用する
+        HttpVersion: http2
+
+        #
+        # Enabled　…　選択したディストリビューションの有効/無効
+        #
+        Enabled: true
+
+        #
+        # Origin　…　コンテンツ配信元
+        #
+        # S3をオリジンサーバにする場合、静的webホスティングを利用する必要はなく、S3バケットでいい。
+        # CloudFrontとS3の通信はHTTPSになる, 静的Webホスティング機能を利用した場合はHTTPになる。
+        # S3バケットの場合はIndex DocumentはROOTオブジェクトに対してのみ有効になる。
+        #
+        Origins:
+        - DomainName: !GetAtt StaticContentsBcuket.DomainName
+          Id: !Sub "S3origin-${S3BucketName}"
+          S3OriginConfig:
+            OriginAccessIdentity: !Sub "origin-access-identity/cloudfront/${CloudFrontOriginAccessIdentity}"
+
+        #
+        # ViewerCertificate
+        #
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CFSSLCertificateId
+          # CloudFrontDefaultCertificate: Boolean
+          # IamCertificateId: String
+          MinimumProtocolVersion: TLSv1.1_2016
+          SslSupportMethod: sni-only
+
+# ------------------------------------------------------------#
+# Route 53
+# ------------------------------------------------------------#
+  Route53RecordSetGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref MyHostedZoneId
+      RecordSets:
+      - Name: !Sub "${DomainName}."
+        Type: A
+        AliasTarget:
+          HostedZoneId: Z2FDTNDATAQYW2
+          DNSName: !GetAtt CloudFrontDistribution.DomainName
+          EvaluateTargetHealth: false
+      - Name: !Sub 'www.${DomainName}'
+        Type: A
+        AliasTarget:
+          HostedZoneId: Z2FDTNDATAQYW2
+          DNSName: !GetAtt CloudFrontDistribution.DomainName
+          EvaluateTargetHealth: false
+
+  
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+#BucketName
+  BucketName:
+    Value: !Ref StaticContentsBcuket
+
+#DistributionID
+  DistributionID:
+    Value: !Ref CloudFrontDistribution
+
+#DmainName
+  DomainName:
+    Value: !GetAtt CloudFrontDistribution.DomainName

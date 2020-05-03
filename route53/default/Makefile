@@ -20,3 +20,8 @@ clean:
 	aws cloudformation delete-stack --stack-name $(STACK_NAME)
 describe:
 	aws cloudformation describe-stacks --output table
+
+DOMAIN_NAME=$(shell jq -r '.[] | select (.ParameterKey == "DomainName") | .ParameterValue' parameters.json)
+
+hosted-zone-id:
+	aws route53 list-hosted-zones | jq -r '.HostedZones[] | select (.Name == "$(DOMAIN_NAME).") | .Id'

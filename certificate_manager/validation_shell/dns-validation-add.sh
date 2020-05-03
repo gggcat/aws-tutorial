@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 usage() {
-  echo "usage: dns-validation.sh <domain-name> <stack-name>"
+  echo "usage: dns-validation-add.sh <domain-name> <stack-name>"
 }
 
 domain_name="$1"
@@ -36,7 +36,7 @@ hosted_zone_id=$(aws route53 list-hosted-zones \
 --query "HostedZones[?Name==\`$domain_name.\`].Id" \
 | grep -o -E "[A-Z0-9]+")
 
-cat > dns-validation.json <<EOL
+cat > dns-validation-add.json <<EOL
 {
   "Changes": [
     {
@@ -56,7 +56,25 @@ cat > dns-validation.json <<EOL
 }
 EOL
 
+cat > dns-validation-del.json <<EOL
+{
+  "Changes": [
+    {
+      "Action": "DELETE",
+      "ResourceRecordSet": {
+        "Name": "$name",
+        "Type": "CNAME",
+        "TTL": 300,
+        "ResourceRecords": [
+          {
+            "Value": "$value"
+          }
+        ]
+      }
+    }
+  ]
+}
+EOL
 
-aws route53 change-resource-record-sets --hosted-zone-id $hosted_zone_id --change-batch file://dns-validation.json
 
-rm dns-validation.json
+aws route53 change-resource-record-sets --hosted-zone-id $hosted_zone_id --change-batch file://dns-validation-add.json
