@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: 
+  Route53 Public Zone
+
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Route53 public zone"
+        Parameters:
+          - DomainName
+
+    ParameterLabels:
+      DomainName:
+        default: "example.com"
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------# 
+Parameters:
+  DomainName:
+    Type: String
+
+Resources:
+# ------------------------------------------------------------#
+# Route 53
+# ------------------------------------------------------------#  
+  MyHostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties: 
+      HostedZoneConfig:
+        Comment: !Sub "My hosted zone for ${DomainName}"
+      Name: !Ref DomainName
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#  
+Outputs:
+  MyHostedZoneName:
+    Description: "Hosted Zone Name."
+    Value: !Ref DomainName
+  MyHostedZoneID:
+    Description: "Hosted Zone ID."
+    Value: !Ref MyHostedZone
+  MyHostedZoneNameServers:
+    Description: "Name Servers."
+    Value: !Join [',', !GetAtt MyHostedZone.NameServers]
