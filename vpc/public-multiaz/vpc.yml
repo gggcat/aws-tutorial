@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: MultiAZ VPC
+
+# ------------------------------------------------------------ #
+# Input Parameters
+# ------------------------------------------------------------ #
+Parameters:
+  VpcCidrBlock:
+    Description: Vpc CIDR block
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnetCidrBlockA:
+    Description: Vpc CIDR block
+    Type: String
+    Default: 10.0.0.0/24
+  PublicSubnetCidrBlockB:
+    Description: Vpc CIDR block
+    Type: String
+    Default: 10.0.1.0/24
+
+Resources:
+# ------------------------------------------------------------#
+# VPC
+# ------------------------------------------------------------#
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-VPC"
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-igw"
+  AttachInternetGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-rtb"
+  PublicRoute:
+    Type: "AWS::EC2::Route"
+    DependsOn: InternetGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+# ------------------------------------------------------------#
+# Subnet - MultiAZ
+# ------------------------------------------------------------#
+  PublicSubnetA:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidrBlockA
+      AvailabilityZone: !Select [ "0", !GetAZs { "Ref": "AWS::Region" } ]
+      MapPublicIpOnLaunch: true
+  PublicSubnetARouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetB:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidrBlockB
+      AvailabilityZone: !Select [ "1", !GetAZs { "Ref": "AWS::Region" } ]
+      MapPublicIpOnLaunch: true
+  PublicSubnetBRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+# ------------------------------------------------------------ #
+# Output Parameters
+# ------------------------------------------------------------ #
+Outputs:
+  myVPC:
+    Value: !Ref VPC
+  myVPCCidrBlock:
+    Value: !GetAtt VPC.CidrBlock
+    Description: VPC CidrBlock
+
+  myPublicSubnetA:
+    Value: !Ref PublicSubnetA
+  myPublicSubnetAAvailabilityZone:
+    Value: !GetAtt PublicSubnetA.AvailabilityZone
+    Description: PublicSubnetA AvailabilityZone
+  # CidrBlocksプロパティはないので入力パラメータをそのまま表示
+  myPublicSubnetACidrBlock:
+    Value: !Ref PublicSubnetCidrBlockA
+    Description: PublicSubnetA Ipv4CidrBlocks
+  #myPublicSubnetAIpv6CidrBlock:
+  #  Value: !GetAtt PublicSubnetA.Ipv6CidrBlocks
+  #  Description: PublicSubnetA Ipv6CidrBlocks
+
+  myPublicSubnetB:
+    Value: !Ref PublicSubnetB
+  myPublicSubnetBAvailabilityZone:
+    Value: !GetAtt PublicSubnetB.AvailabilityZone
+    Description: PublicSubnetB AvailabilityZone
+  # CidrBlocksプロパティはないので入力パラメータをそのまま表示
+  myPublicSubnetBCidrBlock:
+    Value: !Ref PublicSubnetCidrBlockB
+    Description: PublicSubnetB Ipv4CidrBlocks
+  #myPublicSubnetBIpv6CidrBlock:
+  #  Value: !GetAtt PublicSubnetB.Ipv6CidrBlocks
+  #  Description: PublicSubnetB Ipv6CidrBlocks
+
