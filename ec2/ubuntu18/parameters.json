@@ -1,0 +1,14 @@
+[
+    {
+        "ParameterKey": "KeyName",
+        "ParameterValue": "mykey"
+    },
+    {
+        "ParameterKey": "ImageID",
+        "ParameterValue": "ami-0d5db3e2a1b98ca94"
+    },
+    {
+        "ParameterKey": "AllowSshFrom",
+        "ParameterValue": "0.0.0.0/0"
+    }
+]

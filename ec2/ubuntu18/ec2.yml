@@ -1,0 +1,64 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Ubuntu on EC2
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------# 
+Parameters:
+  KeyName:
+    Description: Amazon EC2 Key Pair
+    Type: "AWS::EC2::KeyPair::KeyName"
+    Default: mykey
+  AllowSshFrom:
+    Description: from source IP Address
+    Type: String
+    Default: 0.0.0.0/0
+  ImageID:
+    Description: Ubuntu Linux AMI
+    Type: String
+
+Resources:
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+  MySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH
+      SecurityGroupIngress:
+      - CidrIp: !Ref AllowSshFrom
+        IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+
+# ------------------------------------------------------------#
+# Input Parameters
+# ------------------------------------------------------------#
+  MyEC2Instance:
+    Type: AWS::EC2::Instance
+    Description: "Ubuntu 18.04 bionic on AWS"
+    Properties:
+      ImageId: !Ref ImageID
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - Fn::GetAtt: [ MySecurityGroup, GroupId ]
+      KeyName: !Ref KeyName
+      Tags:
+        - Key: Name
+          Value: !Sub ${AWS::StackName}
+      UserData: !Base64
+        Fn::Sub: |
+          #!/bin/bash -xe
+
+          # ubuntuのパッケージを最新化
+          apt update
+          DEBIAN_FRONTEND=noninteractive apt -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
+          apt-get upgrade -y
+
+# ------------------------------------------------------------#
+# Output Parameters
+# ------------------------------------------------------------#
+Outputs:
+  PublicIp:
+    Description: "Public IP"
+    Value: !GetAtt MyEC2Instance.PublicIp
