@@ -20,6 +20,3 @@ clean:
 	aws cloudformation delete-stack --stack-name $(STACK_NAME)
 describe:
 	aws cloudformation describe-stacks --output table
-
-getaz:
-	aws ec2 describe-availability-zones
