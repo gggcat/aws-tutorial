@@ -1,39 +1,38 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: 
-  Amazon CertManager
+Description: Amazon CertManager
 
 Metadata:
+# ------------------------------------------------------------ #
+# Input Parameters
+# ------------------------------------------------------------ #
   "AWS::CloudFormation::Interface":
     ParameterGroups:
-      - Label: 
+      - Label:
           default: "Route53 public zone"
-        Parameters: 
+        Parameters:
           - DomainName
 
-    ParameterLabels: 
-      DomainName: 
+    ParameterLabels:
+      DomainName:
         default: "example.com"
 
-# ------------------------------------------------------------#
-# Input Parameters
-# ------------------------------------------------------------#
 Parameters:
   DomainName:
     Type: String
 
 Resources:
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 # CertificateManager
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
   MyZoneCertificate:
     Type: AWS::CertificateManager::Certificate
     Properties:
       DomainName: !Ref DomainName
       ValidationMethod: DNS
 
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 # Output Parameters
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 Outputs:
   MyHostedZoneName:
     Description: "DomainName."

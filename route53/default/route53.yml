@@ -1,7 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: 
-  Route53 Public Zone
+Description: Route53 Public Zone
 
+# ------------------------------------------------------------ #
+# Input Parameters
+# ------------------------------------------------------------ #
 Metadata:
   "AWS::CloudFormation::Interface":
     ParameterGroups:
@@ -14,27 +16,24 @@ Metadata:
       DomainName:
         default: "example.com"
 
-# ------------------------------------------------------------#
-# Input Parameters
-# ------------------------------------------------------------# 
 Parameters:
   DomainName:
     Type: String
 
 Resources:
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 # Route 53
-# ------------------------------------------------------------#  
+# ------------------------------------------------------------ #
   MyHostedZone:
     Type: "AWS::Route53::HostedZone"
-    Properties: 
+    Properties:
       HostedZoneConfig:
         Comment: !Sub "My hosted zone for ${DomainName}"
       Name: !Ref DomainName
 
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 # Output Parameters
-# ------------------------------------------------------------#  
+# ------------------------------------------------------------ #
 Outputs:
   MyHostedZoneName:
     Description: "Hosted Zone Name."

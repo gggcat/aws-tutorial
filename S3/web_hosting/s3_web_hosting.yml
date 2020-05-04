@@ -1,6 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: This CloudFormation template to create S3 Bucket
+Description: S3 Webhosting
 
+# ------------------------------------------------------------ #
+# Input Parameters
+# ------------------------------------------------------------ #
 Parameters:
   S3BucketName:
     Description: A name for the WebContents buckets.
@@ -10,6 +13,9 @@ Parameters:
     Type: String
 
 Resources:
+# ------------------------------------------------------------ #
+# S3
+# ------------------------------------------------------------ #
   S3BucketContents:
     Type: AWS::S3::Bucket
     #DeletionPolicy: Retain
@@ -54,6 +60,9 @@ Resources:
               - StorageClass: GLACIER
                 TransitionInDays: 180
 
+# ------------------------------------------------------------ #
+# Output Parameters
+# ------------------------------------------------------------ #
 Outputs:
   S3BucketName:
     Value: !Ref S3BucketContents

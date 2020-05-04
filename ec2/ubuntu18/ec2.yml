@@ -1,9 +1,9 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Ubuntu on EC2
 
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 # Input Parameters
-# ------------------------------------------------------------# 
+# ------------------------------------------------------------ #
 Parameters:
   KeyName:
     Description: Amazon EC2 Key Pair
@@ -18,9 +18,9 @@ Parameters:
     Type: String
 
 Resources:
-# ------------------------------------------------------------#
-# Input Parameters
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
+# EC2
+# ------------------------------------------------------------ #
   MySecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -31,9 +31,6 @@ Resources:
         FromPort: '22'
         ToPort: '22'
 
-# ------------------------------------------------------------#
-# Input Parameters
-# ------------------------------------------------------------#
   MyEC2Instance:
     Type: AWS::EC2::Instance
     Description: "Ubuntu 18.04 bionic on AWS"
@@ -55,9 +52,9 @@ Resources:
           DEBIAN_FRONTEND=noninteractive apt -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" upgrade
           apt-get upgrade -y
 
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 # Output Parameters
-# ------------------------------------------------------------#
+# ------------------------------------------------------------ #
 Outputs:
   PublicIp:
     Description: "Public IP"
