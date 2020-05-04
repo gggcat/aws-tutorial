@@ -1,0 +1,271 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: ALB+EC2 multi az loadbalancing
+
+# ------------------------------------------------------------ #
+# Input Parameters
+# ------------------------------------------------------------ #
+Parameters:
+  VpcCidrBlock:
+    Description: Vpc CIDR block
+    Type: String
+    Default: 10.0.0.0/16
+  PublicSubnetCidrBlockA:
+    Description: Vpc CIDR block
+    Type: String
+    Default: 10.0.0.0/24
+  PublicSubnetCidrBlockB:
+    Description: Vpc CIDR block
+    Type: String
+    Default: 10.0.1.0/24
+
+  KeyName:
+    Description: Amazon EC2 Key Pair
+    Type: "AWS::EC2::KeyPair::KeyName"
+    Default: mykey
+  AllowSshFrom:
+    Description: from source IP Address
+    Type: String
+    Default: 0.0.0.0/0
+  ImageID:
+    Description: Ubuntu Linux AMI
+    Type: String
+
+Resources:
+# ------------------------------------------------------------ #
+# VPC
+# ------------------------------------------------------------ #
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      InstanceTenancy: default
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-VPC"
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-igw"
+  AttachInternetGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicRouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-rtb"
+  PublicRoute:
+    Type: "AWS::EC2::Route"
+    DependsOn: InternetGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnetA:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidrBlockA
+      AvailabilityZone: !Select [ "0", !GetAZs { "Ref": "AWS::Region" } ]
+      MapPublicIpOnLaunch: true
+  PublicSubnetARouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnetA
+      RouteTableId: !Ref PublicRouteTable
+
+  PublicSubnetB:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidrBlockB
+      AvailabilityZone: !Select [ "1", !GetAZs { "Ref": "AWS::Region" } ]
+      MapPublicIpOnLaunch: true
+  PublicSubnetBRouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnetB
+      RouteTableId: !Ref PublicRouteTable
+
+# ------------------------------------------------------------ #
+# EC2
+# ------------------------------------------------------------ #
+  ManagementSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access via port 22
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-management-sg"
+      SecurityGroupIngress:
+        - CidrIp: !Ref AllowSshFrom
+          IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP(S) access via port 80+443
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-web-sg"
+      SecurityGroupIngress:
+        - CidrIp: !Ref VpcCidrBlock
+          IpProtocol: tcp
+          FromPort: '80'
+          ToPort: '80'
+        - CidrIp: !Ref VpcCidrBlock
+          IpProtocol: tcp
+          FromPort: '443'
+          ToPort: '443'
+
+  PublicSubetAInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageID
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - Fn::GetAtt: [ ManagementSecurityGroup, GroupId ]
+        - Fn::GetAtt: [ WebSecurityGroup, GroupId ]
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnetA
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PublicSubnetA-Instance"
+      UserData: !Base64
+        Fn::Sub: |
+          #!/bin/bash
+          apt-get update
+          apt-get install -y apache2
+          echo "<HTML>PUBLIC SUBNET A</HTML>" > /var/www/html/index.html
+
+  PublicSubetBInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref ImageID
+      InstanceType: t2.micro
+      SecurityGroupIds:
+        - Fn::GetAtt: [ ManagementSecurityGroup, GroupId ]
+        - Fn::GetAtt: [ WebSecurityGroup, GroupId ]
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnetB
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-PublicSubnetB-Instance"
+      UserData: !Base64
+        Fn::Sub: |
+          #!/bin/bash
+          apt-get update
+          apt-get install -y apache2
+          echo "<HTML>PUBLIC SUBNET B</HTML>" > /var/www/html/index.html
+
+# ------------------------------------------------------------ #
+# ElasticLoadBalancer
+# ------------------------------------------------------------ #
+  InetnetALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP(S) access via port 80+443
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-lb-sg"
+      SecurityGroupIngress:
+        - CidrIp: 0.0.0.0/0
+          FromPort: '80'
+          IpProtocol: tcp
+          ToPort: '80'
+        - CidrIp: 0.0.0.0/0
+          FromPort: '443'
+          IpProtocol: tcp
+          ToPort: '443'
+
+  InetnetALBTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      VpcId: !Ref VPC
+      Name: !Sub "${AWS::StackName}-tg"
+      Protocol: HTTP
+      Port: 80
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: "/"
+      HealthCheckPort: "traffic-port"
+      HealthyThresholdCount: 2
+      UnhealthyThresholdCount: 2
+      HealthCheckTimeoutSeconds: 5
+      HealthCheckIntervalSeconds: 10
+      Matcher:
+        HttpCode: 200
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-tg"
+      TargetGroupAttributes:
+        - Key: "deregistration_delay.timeout_seconds"
+          Value: 300
+        - Key: "stickiness.enabled"
+          Value: false
+        - Key: "stickiness.type"
+          Value: lb_cookie
+        - Key: "stickiness.lb_cookie.duration_seconds"
+          Value: 86400
+      Targets:
+        - Id: !Ref PublicSubetAInstance
+          Port: 80
+        - Id: !Ref PublicSubetBInstance
+          Port: 80
+
+  InternetALB:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: !Sub "${AWS::StackName}-alb"
+      Tags:
+        - Key: Name
+          Value: !Sub "${AWS::StackName}-alb"
+      Scheme: "internet-facing"
+      LoadBalancerAttributes:
+        - Key: "deletion_protection.enabled"
+          Value: false
+        - Key: "idle_timeout.timeout_seconds"
+          Value: 60
+      SecurityGroups:
+        - !Ref InetnetALBSecurityGroup
+      Subnets:
+        - !Ref PublicSubnetA
+        - !Ref PublicSubnetB
+
+  InternetALBListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref InetnetALBTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref InternetALB
+      Port: 80
+      Protocol: HTTP
+
+# ------------------------------------------------------------ #
+# Output Parameters
+# ------------------------------------------------------------ #
+Outputs:
+  PublicSubnetAInstanceIP:
+    Description: "Management Public IP"
+    Value: !GetAtt PublicSubetAInstance.PublicIp
+  PublicSubnetBInstanceIP:
+    Description: "Management Public IP"
+    Value: !GetAtt PublicSubetBInstance.PublicIp
+  InternetALBPublicDomainName:
+    Description: "Public access Domain Name"
+    Value: !GetAtt InternetALB.DNSName
