@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: ALB+EC2 multi az loadbalancing
+Description: NLB+EC2 multi az loadbalancing
 
 # ------------------------------------------------------------ #
 # Input Parameters
@@ -123,11 +123,11 @@ Resources:
         - Key: Name
           Value: !Sub "${AWS::StackName}-web-sg"
       SecurityGroupIngress:
-        - CidrIp: !Ref VpcCidrBlock
+        - CidrIp: 0.0.0.0/0
           IpProtocol: tcp
           FromPort: '80'
           ToPort: '80'
-        - CidrIp: !Ref VpcCidrBlock
+        - CidrIp: 0.0.0.0/0
           IpProtocol: tcp
           FromPort: '443'
           ToPort: '443'
@@ -175,88 +175,48 @@ Resources:
 # ------------------------------------------------------------ #
 # ElasticLoadBalancer
 # ------------------------------------------------------------ #
-  InternetALBSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Enable HTTP(S) access via port 80+443
-      VpcId: !Ref VPC
-      Tags:
-        - Key: Name
-          Value: !Sub "${AWS::StackName}-lb-sg"
-      SecurityGroupIngress:
-        - CidrIp: 0.0.0.0/0
-          FromPort: '80'
-          IpProtocol: tcp
-          ToPort: '80'
-        - CidrIp: 0.0.0.0/0
-          FromPort: '443'
-          IpProtocol: tcp
-          ToPort: '443'
-
-  InternetALBTargetGroup:
+  InternetNLBTargetGroup:
     Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
     Properties:
       VpcId: !Ref VPC
       Name: !Sub "${AWS::StackName}-tg"
-      Protocol: HTTP
+      Protocol: TCP
       Port: 80
-      HealthCheckProtocol: HTTP
-      HealthCheckPath: "/"
-      HealthCheckPort: "traffic-port"
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 2
-      HealthCheckTimeoutSeconds: 5
-      HealthCheckIntervalSeconds: 10
-      Matcher:
-        HttpCode: 200
       Tags:
         - Key: Name
           Value: !Sub "${AWS::StackName}-tg"
       TargetGroupAttributes:
         - Key: "deregistration_delay.timeout_seconds"
           Value: 300
-        - Key: "stickiness.enabled"
-          Value: false
-        - Key: "stickiness.type"
-          Value: lb_cookie
-        - Key: "stickiness.lb_cookie.duration_seconds"
-          Value: 86400
       Targets:
         - Id: !Ref PublicSubetAInstance
           Port: 80
         - Id: !Ref PublicSubetBInstance
           Port: 80
 
-  InternetALB:
+  InternetNLB:
     Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
     Properties:
-      Name: !Sub "${AWS::StackName}-alb"
+      Name: !Sub "${AWS::StackName}-nlb"
       Tags:
         - Key: Name
-          Value: !Sub "${AWS::StackName}-alb"
+          Value: !Sub "${AWS::StackName}-nlb"
       # ロードバランサーのタイプ (default: application)
-      Type: application
+      Type: network
       Scheme: "internet-facing"
-      LoadBalancerAttributes:
-        - Key: "deletion_protection.enabled"
-          Value: false
-        - Key: "idle_timeout.timeout_seconds"
-          Value: 60
-      SecurityGroups:
-        - !Ref InternetALBSecurityGroup
       Subnets:
         - !Ref PublicSubnetA
         - !Ref PublicSubnetB
 
-  InternetALBListener:
+  InternetNLBListener:
     Type: "AWS::ElasticLoadBalancingV2::Listener"
     Properties:
       DefaultActions:
-        - TargetGroupArn: !Ref InternetALBTargetGroup
+        - TargetGroupArn: !Ref InternetNLBTargetGroup
           Type: forward
-      LoadBalancerArn: !Ref InternetALB
+      LoadBalancerArn: !Ref InternetNLB
       Port: 80
-      Protocol: HTTP
+      Protocol: TCP
 
 # ------------------------------------------------------------ #
 # Output Parameters
@@ -268,6 +228,6 @@ Outputs:
   PublicSubnetBInstanceIP:
     Description: "Management Public IP"
     Value: !GetAtt PublicSubetBInstance.PublicIp
-  InternetALBPublicDomainName:
+  InternetNLBPublicDomainName:
     Description: "Public access Domain Name"
-    Value: !GetAtt InternetALB.DNSName
+    Value: !GetAtt InternetNLB.DNSName
