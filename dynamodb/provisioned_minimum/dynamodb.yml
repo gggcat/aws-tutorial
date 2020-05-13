@@ -1,0 +1,70 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: DynamoDB
+
+Metadata:
+# ------------------------------------------------------------ #
+# Input Parameters
+# ------------------------------------------------------------ #
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Dynamo DB"
+        Parameters:
+          - TableName
+
+    ParameterLabels:
+      TableName:
+        default: "myTable"
+
+Parameters:
+  TableName:
+    Type: String
+
+Resources:
+# ------------------------------------------------------------ #
+# DynamoDB
+# ------------------------------------------------------------ #
+Resources:
+  DDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Ref TableName
+      AttributeDefinitions:
+        -
+          AttributeName: "ArtistId"
+          AttributeType: "S"
+        -
+          AttributeName: "Concert"
+          AttributeType: "S"
+        -
+          AttributeName: "TicketSales"
+          AttributeType: "S"
+      KeySchema:
+        -
+          AttributeName: "ArtistId"
+          KeyType: "HASH"
+        -
+          AttributeName: "Concert"
+          KeyType: "RANGE"
+      GlobalSecondaryIndexes:
+        -
+          IndexName: "GSI"
+          KeySchema:
+            -
+              AttributeName: "TicketSales"
+              KeyType: "HASH"
+          Projection:
+            ProjectionType: "KEYS_ONLY"
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+
+# ------------------------------------------------------------ #
+# Output Parameters
+# ------------------------------------------------------------ #
+Outputs:
+  DynamoDBTable:
+    Value: !Ref DDBTable
